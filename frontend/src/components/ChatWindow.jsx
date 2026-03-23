@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { sendMessage } from '../api/axios'
 import MessageBubble from './MessageBubble'
-import { Send, Loader, MessageSquare, Bot } from 'lucide-react'
-
-
 
 export default function ChatWindow({ document }) {
   const [messages, setMessages] = useState([])
@@ -11,13 +8,12 @@ export default function ChatWindow({ document }) {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
   const bottomRef = useRef(null)
+  const textareaRef = useRef(null)
 
-  // Auto-scroll to latest message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Reset chat when document changes
   useEffect(() => {
     setMessages([])
     setSessionId(null)
@@ -26,36 +22,24 @@ export default function ChatWindow({ document }) {
 
   const handleSend = async () => {
     if (!input.trim() || loading || !document) return
-
     const userText = input.trim()
     setInput('')
     setLoading(true)
-
-    // Show user message immediately (feels faster)
     setMessages(prev => [...prev, { role: 'user', content: userText }])
-
     try {
       const response = await sendMessage(document.id, userText, sessionId)
-
-      // Save session ID from first message
       if (!sessionId) setSessionId(response.data.session_id)
-
-      // Add AI response
+      setMessages(prev => [...prev, { role: 'assistant', content: response.data.answer }])
+    } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: response.data.answer
-      }])
-    } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '⚠️ Something went wrong. Please try again.'
+        content: 'Something went wrong. Please try again.'
       }])
     } finally {
       setLoading(false)
     }
   }
 
-  // Send on Enter key (Shift+Enter for new line)
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -63,115 +47,261 @@ export default function ChatWindow({ document }) {
     }
   }
 
+  const suggestions = [
+    'Summarize this document',
+    'What are the key points?',
+    'What is this document about?'
+  ]
+
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-700/50">
-        <h2 className="font-semibold text-slate-200 flex items-center gap-2">
-          <MessageSquare size={18} className="text-violet-400" />
-          {document ? `Chatting with: ${document.name}` : 'Select a document to start'}
-        </h2>
-        {document && (
-          <p className="text-xs text-slate-500 mt-0.5">
-            Ask anything about this document
-          </p>
-        )}
-      </div>
+      {/* ── MESSAGES AREA ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 0' }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '0 24px' }}>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {!document && (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <MessageSquare size={48} className="text-slate-700 mb-4" />
-            <p className="text-slate-500 font-medium">No document selected</p>
-            <p className="text-slate-600 text-sm mt-1">
-              Upload a document on the left to start chatting
-            </p>
-          </div>
-        )}
-
-        {document && messages.length === 0 && !loading && (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <Bot size={48} className="text-slate-700 mb-4" />
-            <p className="text-slate-400 font-medium">Ready to answer your questions</p>
-            <p className="text-slate-600 text-sm mt-1">
-              Ask anything about <span className="text-violet-400">{document.name}</span>
-            </p>
-
-            {/* Suggestion chips */}
-            <div className="flex flex-wrap gap-2 mt-6 justify-center">
-              {['Summarize this document', 'What are the key points?', 'What is this about?'].map(s => (
-                <button
-                  key={s}
-                  onClick={() => setInput(s)}
-                  className="text-xs px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60
-                             text-slate-400 rounded-full border border-slate-600/50
-                             transition-colors cursor-pointer"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Render all messages */}
-        {messages.map((msg, i) => (
-          <MessageBubble key={i} role={msg.role} content={msg.content} />
-        ))}
-
-        {/* Loading indicator */}
-        {loading && (
-          <div className="flex gap-3">
-            <div className="shrink-0 w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
-              <Loader size={14} className="text-violet-400 animate-spin" />
-            </div>
-            <div className="bg-slate-700/70 border border-slate-600/50 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex gap-1 items-center h-4">
-                <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}}/>
-                <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}}/>
-                <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}}/>
+          {/* Empty state — no document */}
+          {!document && (
+            <div style={{ textAlign: 'center', paddingTop: '80px' }}>
+              <div style={{
+                width: '48px', height: '48px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--text-muted)" strokeWidth="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div style={{
+                fontSize: '15px', fontWeight: '500',
+                color: 'var(--text-primary)', marginBottom: '8px'
+              }}>
+                Upload a document to begin
+              </div>
+              <div style={{
+                fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6'
+              }}>
+                Upload a PDF, DOCX, or TXT file from the sidebar.<br />
+                Then ask any question about its contents.
               </div>
             </div>
+          )}
+
+          {/* Ready state — document loaded, no messages yet */}
+          {document && messages.length === 0 && !loading && (
+            <div style={{ textAlign: 'center', paddingTop: '60px' }}>
+              <div style={{
+                width: '48px', height: '48px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--text-muted)" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </div>
+              <div style={{
+                fontSize: '15px', fontWeight: '500',
+                color: 'var(--text-primary)', marginBottom: '6px'
+              }}>
+                Ready to answer
+              </div>
+              <div style={{
+                fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px'
+              }}>
+                Ask anything about{' '}
+                <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>
+                  {document.name}
+                </span>
+              </div>
+
+              {/* Suggestion chips */}
+              <div style={{
+                display: 'flex', flexWrap: 'wrap',
+                gap: '8px', justifyContent: 'center'
+              }}>
+                {suggestions.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setInput(s)}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      color: 'var(--text-secondary)',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '20px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      e.target.style.borderColor = '#0f2744'
+                      e.target.style.color = '#0f2744'
+                    }}
+                    onMouseLeave={e => {
+                      e.target.style.borderColor = 'var(--border)'
+                      e.target.style.color = 'var(--text-secondary)'
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Messages list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {messages.map((msg, i) => (
+              <MessageBubble key={i} role={msg.role} content={msg.content} />
+            ))}
           </div>
-        )}
 
-        <div ref={bottomRef} />
-      </div>
+          {/* Loading indicator */}
+          {loading && (
+            <div style={{
+              display: 'flex', gap: '12px',
+              alignItems: 'flex-start', marginTop: '16px'
+            }}>
+              <div style={{
+                width: '28px', height: '28px',
+                borderRadius: '50%',
+                background: 'var(--accent-light)',
+                border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', fontWeight: '600',
+                color: 'var(--accent)', flexShrink: 0,
+              }}>
+                AI
+              </div>
+              <div style={{
+                padding: '10px 14px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px 14px 14px 14px',
+                display: 'flex', gap: '4px', alignItems: 'center',
+              }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{
+                    width: '5px', height: '5px',
+                    borderRadius: '50%',
+                    background: 'var(--text-muted)',
+                    animation: 'bounce 1.2s ease-in-out infinite',
+                    animationDelay: `${i * 0.2}s`,
+                  }}/>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* Input Bar */}
-      <div className="px-6 py-4 border-t border-slate-700/50">
-        <div className={`
-          flex gap-3 items-end bg-slate-700/50 rounded-2xl px-4 py-3
-          border transition-colors
-          ${document ? 'border-slate-600 focus-within:border-violet-500' : 'border-slate-700 opacity-50'}
-        `}>
-          <textarea
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={!document || loading}
-            placeholder={document ? "Ask a question... (Enter to send)" : "Upload a document first"}
-            className="flex-1 bg-transparent text-slate-200 placeholder-slate-500
-                       text-sm outline-none py-0.5 max-h-32 overflow-y-auto"
-            style={{ lineHeight: '1.5' }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!document || !input.trim() || loading}
-            className="shrink-0 w-8 h-8 rounded-xl bg-violet-600 hover:bg-violet-500
-                       disabled:bg-slate-600 disabled:cursor-not-allowed
-                       flex items-center justify-center transition-colors"
-          >
-            <Send size={14} className="text-white" />
-          </button>
+          <div ref={bottomRef} />
         </div>
-        <p className="text-xs text-slate-600 mt-2 text-center">
-          Shift+Enter for new line · Enter to send
-        </p>
       </div>
+
+      {/* ── INPUT BAR ── */}
+      <div style={{
+        borderTop: '1px solid var(--border)',
+        padding: '16px 24px 20px',
+        background: 'var(--bg-primary)',
+      }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 12px 6px',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+
+            {/* Textarea + Send button row */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!document || loading}
+                placeholder={
+                  document
+                    ? 'Ask a question about this document...'
+                    : 'Upload a document first'
+                }
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'DM Sans, sans-serif',
+                  lineHeight: '1.5',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!document || !input.trim() || loading}
+                style={{
+                  width: '32px', height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: (!document || !input.trim() || loading)
+                    ? 'var(--bg-tertiary)'
+                    : '#0f2744',
+                  cursor: (!document || !input.trim() || loading)
+                    ? 'not-allowed'
+                    : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                  transition: 'background 0.15s',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="white" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* ── HINT LINE INSIDE THE BOX ── */}
+            <div style={{
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              padding: '6px 2px 2px',
+              borderTop: '1px solid var(--border)',
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}>
+              <span>↵ Enter to send</span>
+              <span>⇧ Shift+Enter for new line</span>
+              <span style={{ marginLeft: 'auto' }}>
+                Answers based only on document content
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-5px); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }

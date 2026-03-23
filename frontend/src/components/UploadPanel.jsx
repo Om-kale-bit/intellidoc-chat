@@ -1,29 +1,26 @@
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { uploadDocument } from '../api/axios'
-import { FileText, Upload, CheckCircle, Loader, AlertCircle } from 'lucide-react'
 
 export default function UploadPanel({ onDocumentUploaded }) {
-  const [status, setStatus] = useState('idle') // idle | uploading | success | error
+  const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
-  const [uploadedDoc, setUploadedDoc] = useState(null)
 
   const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0]
     if (!file) return
-
     setStatus('uploading')
-    setMessage(`Uploading and processing "${file.name}"...`)
-
+    setMessage(`Processing...`)
     try {
       const response = await uploadDocument(file)
       setStatus('success')
-      setUploadedDoc(response.data)
-      setMessage(`✓ Ready! Split into ${response.data.chunks} chunks.`)
-      onDocumentUploaded(response.data) // tell parent component
+      setMessage(`Done — ${response.data.chunks} chunks indexed`)
+      onDocumentUploaded(response.data)
+      setTimeout(() => setStatus('idle'), 3000)
     } catch (err) {
       setStatus('error')
-      setMessage(err.response?.data?.error || 'Upload failed. Try again.')
+      setMessage(err.response?.data?.error || 'Upload failed')
+      setTimeout(() => setStatus('idle'), 3000)
     }
   }, [onDocumentUploaded])
 
@@ -39,72 +36,78 @@ export default function UploadPanel({ onDocumentUploaded }) {
   })
 
   return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
-        <FileText size={20} className="text-violet-400" />
-        Upload Document
-      </h2>
+    <div>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '600',
+        color: 'var(--text-muted)',
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        marginBottom: '10px',
+      }}>
+        Upload
+      </div>
 
-      {/* Drop Zone */}
       <div
         {...getRootProps()}
-        className={`
-          border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
-          ${isDragActive
-            ? 'border-violet-400 bg-violet-500/10'
-            : 'border-slate-600 hover:border-violet-500 hover:bg-slate-700/40'
-          }
-          ${status === 'uploading' ? 'opacity-60 cursor-not-allowed' : ''}
-        `}
+        style={{
+          border: `1.5px dashed ${isDragActive ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-md)',
+          padding: '20px 16px',
+          textAlign: 'center',
+          cursor: status === 'uploading' ? 'not-allowed' : 'pointer',
+          background: isDragActive ? 'var(--accent-light)' : 'var(--bg-primary)',
+          transition: 'all 0.2s',
+        }}
       >
         <input {...getInputProps()} />
 
-        <Upload
-          size={32}
-          className={`mx-auto mb-3 ${isDragActive ? 'text-violet-400' : 'text-slate-500'}`}
-        />
-
-        {isDragActive ? (
-          <p className="text-violet-400 font-medium">Drop it here!</p>
+        {status === 'uploading' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '20px', height: '20px',
+              border: '2px solid var(--border)',
+              borderTop: '2px solid var(--accent)',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}/>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{message}</span>
+          </div>
+        ) : status === 'success' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '20px', height: '20px', color: 'var(--accent)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: '500' }}>{message}</span>
+          </div>
+        ) : status === 'error' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', color: '#DC2626' }}>{message}</span>
+          </div>
         ) : (
-          <>
-            <p className="text-slate-300 font-medium mb-1">
-              Drag & drop your file here
-            </p>
-            <p className="text-slate-500 text-sm">
-              or click to browse
-            </p>
-            <p className="text-slate-600 text-xs mt-2">
-              PDF, DOCX, TXT supported
-            </p>
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{ color: isDragActive ? 'var(--accent)' : 'var(--text-muted)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-primary)' }}>
+                {isDragActive ? 'Drop to upload' : 'Drop file here'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                PDF, DOCX, TXT
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Status Message */}
-      {status !== 'idle' && (
-        <div className={`
-          mt-4 p-3 rounded-lg flex items-center gap-3 text-sm
-          ${status === 'uploading' ? 'bg-blue-500/10 text-blue-400' : ''}
-          ${status === 'success' ? 'bg-green-500/10 text-green-400' : ''}
-          ${status === 'error' ? 'bg-red-500/10 text-red-400' : ''}
-        `}>
-          {status === 'uploading' && <Loader size={16} className="animate-spin shrink-0" />}
-          {status === 'success' && <CheckCircle size={16} className="shrink-0" />}
-          {status === 'error' && <AlertCircle size={16} className="shrink-0" />}
-          <span>{message}</span>
-        </div>
-      )}
-
-      {/* Uploaded Doc Info */}
-      {uploadedDoc && status === 'success' && (
-        <div className="mt-4 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
-          <p className="text-xs text-slate-400 mb-1">Current document</p>
-          <p className="text-slate-200 text-sm font-medium truncate">
-            {uploadedDoc.name}
-          </p>
-        </div>
-      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

@@ -180,3 +180,11 @@ DOCUMENT CONTEXT:
     )
 
     return response.choices[0].message.content
+
+def delete_document_collection(document_id: int):
+    """Remove a document's embeddings from ChromaDB"""
+    collection_name = f"document_{document_id}"
+    try:
+        chroma_client.delete_collection(collection_name)
+    except Exception:
+        pass

@@ -1,6 +1,5 @@
 import axios from 'axios'
 
-// All API calls go to Django running on port 8000
 const API = axios.create({
   baseURL: 'http://127.0.0.1:8000/api',
   headers: {
@@ -8,7 +7,6 @@ const API = axios.create({
   },
 })
 
-// Upload a document (PDF/DOCX/TXT)
 export const uploadDocument = (file) => {
   const formData = new FormData()
   formData.append('file', file)
@@ -17,10 +15,10 @@ export const uploadDocument = (file) => {
   })
 }
 
-// Get list of all uploaded documents
 export const getDocuments = () => API.get('/documents/')
 
-// Send a chat message and get AI response
+export const deleteDocument = (id) => API.delete(`/documents/${id}/`)
+
 export const sendMessage = (documentId, message, sessionId = null) => {
   return API.post('/chat/', {
     document_id: documentId,
@@ -29,6 +27,5 @@ export const sendMessage = (documentId, message, sessionId = null) => {
   })
 }
 
-// Get chat history for a session
 export const getChatHistory = (sessionId) =>
   API.get(`/chat/?session_id=${sessionId}`)
